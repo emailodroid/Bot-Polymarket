@@ -12,10 +12,10 @@
   "dependencies": {
     "@polymarket/builder-relayer-client": "^0.0.8",
     "@polymarket/builder-signing-sdk": "^0.0.8",
-    "@polymarket/clob-client": "^5.8.1",
+    "@polymarket/client": "^0.1.0-beta.12",
     "dotenv": "^17.2.3",
     "ethers": "^5.8.0",
-    "viem": "^2.44.4"
+    "viem": "^2.54.6"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

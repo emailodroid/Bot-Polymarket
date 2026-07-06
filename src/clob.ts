@@ -1,84 +1,55 @@
-import {
-  ApiKeyCreds,
-  ClobClient,
-  OrderType,
-  Side,
-  TickSize,
-} from "@polymarket/clob-client";
+import { createSecureClient, OrderSide } from "@polymarket/client";
+import { privateKey } from "@polymarket/client/viem";
 import { Wallet } from "ethers";
 import { Logger } from "./logger.js";
 
+export interface ApiCreds {
+  key: string;
+  secret: string;
+  passphrase: string;
+}
+
 export interface ClobConfig {
-  host: string;
-  chainId: number;
   privateKey: string;
-  signatureType: number;
   funderAddress?: string;
-  apiCreds?: ApiKeyCreds;
+  apiCreds?: ApiCreds;
 }
 
 export interface MarketMeta {
-  tickSize: TickSize;
+  tickSize: number;
   minOrderSize: number;
   negRisk: boolean;
 }
 
+type PolymarketClient = Awaited<ReturnType<typeof createSecureClient>>;
+type SecureClientOptions = Parameters<typeof createSecureClient>[0];
+
 export class ClobService {
-  private client: ClobClient;
+  private client: PolymarketClient;
   private logger: Logger;
   private metaCache: Map<string, { meta: MarketMeta; ts: number }> = new Map();
 
-  private static isValidCreds(creds: unknown): creds is ApiKeyCreds {
-    if (!creds || typeof creds !== "object") return false;
-    const c = creds as ApiKeyCreds;
-    return Boolean(c.key && c.secret && c.passphrase);
-  }
-
-  private constructor(client: ClobClient, logger: Logger) {
+  private constructor(client: PolymarketClient, logger: Logger) {
     this.client = client;
     this.logger = logger;
   }
 
   static async init(config: ClobConfig, logger: Logger): Promise<ClobService> {
-    const signer = new Wallet(config.privateKey);
-    const temp = new ClobClient(
-      config.host,
-      config.chainId,
-      signer,
-      undefined,
-      config.signatureType,
-      config.funderAddress,
-    );
+    const pk = config.privateKey.startsWith("0x")
+      ? config.privateKey
+      : `0x${config.privateKey}`;
+    // Explicitly pass the account wallet: the configured funder (proxy/safe)
+    // or the signer's own address for EOA setups. Omitting it would make the
+    // SDK fall back to the deterministic Deposit Wallet.
+    const wallet = config.funderAddress ?? new Wallet(pk).address;
 
-    let creds = config.apiCreds;
-    if (!creds) {
-      logger.info("Deriving Polymarket API keys");
-      const derived = await temp.deriveApiKey();
-      if (ClobService.isValidCreds(derived)) {
-        creds = derived;
-        logger.info("Derived API keys.");
-      } else {
-        logger.warn("No existing API keys found, attempting create");
-        const created = await temp.createApiKey();
-        if (ClobService.isValidCreds(created)) {
-          creds = created;
-          logger.info("Created API keys.");
-        } else {
-          throw new Error(
-            "Unable to create or derive API keys. Check SIGNATURE_TYPE, PRIVATE_KEY, and FUNDER_ADDRESS/PROFILE_ADDRESS.",
-          );
-        }
-      }
-    }
-
-    const client = new ClobClient(
-      config.host,
-      config.chainId,
-      signer,
-      creds,
-      config.signatureType,
-      config.funderAddress,
-    );
+    logger.info("Authenticating with Polymarket");
+    const client = await createSecureClient({
+      signer: privateKey(pk as `0x${string}`),
+      wallet,
+      credentials: config.apiCreds,
+    } as SecureClientOptions);
+    logger.info("Polymarket client ready", { wallet });
     return new ClobService(client, logger);
   }
 
@@ -87,36 +58,29 @@ export class ClobService {
     const now = Date.now();
     if (cached && now - cached.ts < 5 * 60 * 1000) return cached.meta;
 
-    const ob = await this.client.getOrderBook(tokenId);
+    const ob = await this.client.fetchOrderBook({ tokenId });
     const meta: MarketMeta = {
-      tickSize: ob.tick_size as TickSize,
-      minOrderSize: Number(ob.min_order_size),
-      negRisk: Boolean(ob.neg_risk),
+      tickSize: Number(ob.tickSize),
+      minOrderSize: Number(ob.minOrderSize),
+      negRisk: Boolean(ob.negRisk),
     };
     this.metaCache.set(tokenId, { meta, ts: now });
     return meta;
   }
 
-  private roundToTick(price: number, tickSize: TickSize, side: Side): number {
-    const tick = Number(tickSize);
+  private roundToTick(price: number, tick: number, side: OrderSide): number {
     if (!Number.isFinite(tick) || tick <= 0) return price;
-    const factor = 1 / tick;
+    const factor = Math.round(1 / tick);
     const raw = price * factor;
-    const rounded = side === Side.BUY ? Math.floor(raw) : Math.ceil(raw);
+    const rounded = side === OrderSide.BUY ? Math.floor(raw) : Math.ceil(raw);
     const result = rounded / factor;
-    const decimals = tickSize.includes("0.0001")
-      ? 4
-      : tickSize.includes("0.001")
-        ? 3
-        : tickSize.includes("0.01")
-          ? 2
-          : 1;
+    const decimals = Math.max(1, Math.ceil(Math.log10(factor)));
     return Number(result.toFixed(decimals));
   }
 
   async placeLimitOrder(params: {
     tokenId: string;
-    side: Side;
+    side: OrderSide;
     price: number;
     size: number;
   }): Promise<void> {
@@ -135,21 +99,14 @@ export class ClobService {
       return;
     }
 
-    const resp = await this.client.createAndPostOrder(
-      {
-        tokenID: tokenId,
-        price,
-        side,
-        size,
-      },
-      { tickSize: meta.tickSize, negRisk: meta.negRisk },
-      OrderType.GTC,
-    );
-    if (resp?.error) {
-      throw new Error(resp.error);
-    }
-    if (resp?.status && resp.status >= 400) {
-      throw new Error(`Order failed (status ${resp.status})`);
+    const resp = await this.client.placeLimitOrder({
+      tokenId,
+      side,
+      price,
+      size,
+    });
+    if (!resp.ok) {
+      throw new Error(`${resp.message} (${resp.code})`);
     }
   }
 }

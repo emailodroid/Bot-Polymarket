@@ -44,10 +44,7 @@ const main = async () => {
 
   const clob = await ClobService.init(
     {
-      host: config.clobHost,
-      chainId: config.chainId,
       privateKey: config.privateKey,
-      signatureType: config.signatureType,
       funderAddress: config.funderAddress,
       apiCreds: config.apiCreds,
     },

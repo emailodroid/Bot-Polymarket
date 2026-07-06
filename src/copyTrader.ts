@@ -1,4 +1,4 @@
-import { Side } from "@polymarket/clob-client";
+import { OrderSide } from "@polymarket/client";
 import { Config, CopyStrategy } from "./config.js";
 import { ClobService } from "./clob.js";
 import { DataApiClient } from "./dataApi.js";
@@ -87,7 +87,7 @@ export class CopyTrader {
   }
 
   private clampToLimits(
-    side: Side,
+    side: OrderSide,
     size: number,
     notional: number,
     price: number
@@ -101,7 +101,7 @@ export class CopyTrader {
 
     if (!isPositive(size) || !isPositive(notional)) return null;
 
-    if (side === Side.BUY) {
+    if (side === OrderSide.BUY) {
       ensureDailyVolume(this.state);
       const remaining = this.config.maxDailyVolumeUsd - this.state.dailyVolume.spentUsd;
       if (remaining <= 0) return null;
@@ -115,8 +115,8 @@ export class CopyTrader {
     return { size, notional };
   }
 
-  private async clampToPosition(side: Side, tokenId: string, size: number, notional: number, price: number) {
-    if (side === Side.BUY) {
+  private async clampToPosition(side: OrderSide, tokenId: string, size: number, notional: number, price: number) {
+    if (side === OrderSide.BUY) {
       const position = await this.positionCache.getPositionByToken(tokenId);
       const priceHint = position?.curPrice ?? position?.avgPrice ?? price;
       const currentValue = position ? priceHint * position.size : 0;
@@ -157,7 +157,7 @@ export class CopyTrader {
       return;
     }
 
-    const side = trade.side === "BUY" ? Side.BUY : Side.SELL;
+    const side = trade.side === "BUY" ? OrderSide.BUY : OrderSide.SELL;
     let size = computed.size;
     let notional = computed.notional;
 
@@ -196,7 +196,7 @@ export class CopyTrader {
         price: trade.price,
         size,
       });
-      if (side === Side.BUY) {
+      if (side === OrderSide.BUY) {
         ensureDailyVolume(this.state);
         this.state.dailyVolume.spentUsd += notional;
       }
