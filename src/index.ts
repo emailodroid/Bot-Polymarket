@@ -51,6 +51,13 @@ const main = async () => {
     logger,
   );
 
+  if (clob.accountWallet.toLowerCase() !== config.profileAddress) {
+    logger.warn(
+      "PROFILE_ADDRESS differs from the trading wallet; position and redeem lookups may miss your positions",
+      { profileAddress: config.profileAddress, tradingWallet: clob.accountWallet },
+    );
+  }
+
   const dataApi = new DataApiClient(config.dataApiHost, logger);
   const copyTrader = new CopyTrader(config, clob, dataApi, state, logger);
 

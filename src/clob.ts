@@ -38,10 +38,16 @@ export class ClobService {
     const pk = config.privateKey.startsWith("0x")
       ? config.privateKey
       : `0x${config.privateKey}`;
-    // Explicitly pass the account wallet: the configured funder (proxy/safe)
-    // or the signer's own address for EOA setups. Omitting it would make the
-    // SDK fall back to the deterministic Deposit Wallet.
-    const wallet = config.funderAddress ?? new Wallet(pk).address;
+    const signerAddress = new Wallet(pk).address;
+    // Only force an explicit account wallet when a separate funder (proxy or
+    // safe) is configured. Passing the signer's own EOA would opt into EOA
+    // trading, which the CLOB rejects ("maker address not allowed"); omitting
+    // the wallet lets the SDK resolve the account's Deposit Wallet instead.
+    const funder = config.funderAddress;
+    const wallet =
+      funder && funder.toLowerCase() !== signerAddress.toLowerCase()
+        ? funder
+        : undefined;
 
     logger.info("Authenticating with Polymarket");
     const client = await createSecureClient({
@@ -49,8 +55,12 @@ export class ClobService {
       wallet,
       credentials: config.apiCreds,
     } as SecureClientOptions);
-    logger.info("Polymarket client ready", { wallet });
+    logger.info("Polymarket client ready", { ...client.account });
     return new ClobService(client, logger);
+  }
+
+  get accountWallet(): string {
+    return this.client.account.wallet;
   }
 
   async getMarketMeta(tokenId: string): Promise<MarketMeta> {
