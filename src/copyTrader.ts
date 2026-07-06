@@ -88,11 +88,19 @@ export class CopyTrader {
 
   private clampToLimits(
     side: OrderSide,
+    tokenId: string,
     size: number,
     notional: number,
     price: number
   ): { size: number; notional: number } | null {
-    if (notional < this.config.minTradeUsd) return null;
+    if (notional < this.config.minTradeUsd) {
+      this.logger.debug("Trade below MIN_TRADE_USD, skipping", {
+        tokenId,
+        notional: formatUsd(notional),
+        min: this.config.minTradeUsd,
+      });
+      return null;
+    }
 
     if (notional > this.config.maxTradeUsd) {
       notional = this.config.maxTradeUsd;
@@ -104,11 +112,25 @@ export class CopyTrader {
     if (side === OrderSide.BUY) {
       ensureDailyVolume(this.state);
       const remaining = this.config.maxDailyVolumeUsd - this.state.dailyVolume.spentUsd;
-      if (remaining <= 0) return null;
+      if (remaining <= 0) {
+        this.logger.warn("Daily volume cap reached, skipping buy", {
+          tokenId,
+          spentUsd: formatUsd(this.state.dailyVolume.spentUsd),
+          capUsd: this.config.maxDailyVolumeUsd,
+        });
+        return null;
+      }
       if (notional > remaining) {
         notional = remaining;
         size = notional / price;
-        if (notional < this.config.minTradeUsd) return null;
+        if (notional < this.config.minTradeUsd) {
+          this.logger.warn("Daily volume cap leaves less than MIN_TRADE_USD, skipping buy", {
+            tokenId,
+            remainingUsd: formatUsd(remaining),
+            min: this.config.minTradeUsd,
+          });
+          return null;
+        }
       }
     }
 
@@ -121,7 +143,14 @@ export class CopyTrader {
       const priceHint = position?.curPrice ?? position?.avgPrice ?? price;
       const currentValue = position ? priceHint * position.size : 0;
       const remaining = this.config.maxPositionSizeUsd - currentValue;
-      if (remaining <= 0) return null;
+      if (remaining <= 0) {
+        this.logger.warn("Position size cap reached, skipping buy", {
+          tokenId,
+          positionValueUsd: formatUsd(currentValue),
+          capUsd: this.config.maxPositionSizeUsd,
+        });
+        return null;
+      }
       if (notional > remaining) {
         notional = remaining;
         size = notional / price;
@@ -131,7 +160,10 @@ export class CopyTrader {
     }
 
     const position = await this.positionCache.getPositionByToken(tokenId);
-    if (!position || position.size <= 0) return null;
+    if (!position || position.size <= 0) {
+      this.logger.debug("No position to sell, skipping", { tokenId });
+      return null;
+    }
     if (size > position.size) {
       size = position.size;
       notional = size * price;
@@ -161,7 +193,7 @@ export class CopyTrader {
     let size = computed.size;
     let notional = computed.notional;
 
-    const clamped = this.clampToLimits(side, size, notional, trade.price);
+    const clamped = this.clampToLimits(side, trade.asset, size, notional, trade.price);
     if (!clamped) {
       noteSeenTrade(this.state, tradeKey, trade.timestamp);
       return;
