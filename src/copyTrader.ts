@@ -190,12 +190,13 @@ export class CopyTrader {
     }
 
     try {
-      await this.clob.placeLimitOrder({
+      const placed = await this.clob.placeLimitOrder({
         tokenId: trade.asset,
         side,
         price: trade.price,
         size,
       });
+      if (!placed) return;
       if (side === OrderSide.BUY) {
         ensureDailyVolume(this.state);
         this.state.dailyVolume.spentUsd += notional;

@@ -88,12 +88,13 @@ export class ClobService {
     return Number(result.toFixed(decimals));
   }
 
+  /** Returns true when the order was posted, false when it was skipped. */
   async placeLimitOrder(params: {
     tokenId: string;
     side: OrderSide;
     price: number;
     size: number;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { tokenId, side } = params;
     const meta = await this.getMarketMeta(tokenId);
 
@@ -101,12 +102,12 @@ export class ClobService {
     const size = params.size;
 
     if (size < meta.minOrderSize) {
-      this.logger.warn("Order size below minimum", {
+      this.logger.warn("Order size below minimum, skipping", {
         tokenId,
         size,
         min: meta.minOrderSize,
       });
-      return;
+      return false;
     }
 
     const resp = await this.client.placeLimitOrder({
@@ -118,5 +119,6 @@ export class ClobService {
     if (!resp.ok) {
       throw new Error(`${resp.message} (${resp.code})`);
     }
+    return true;
   }
 }
