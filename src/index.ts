@@ -62,19 +62,7 @@ const main = async () => {
   const copyTrader = new CopyTrader(config, clob, dataApi, state, logger);
 
   const redeemService = config.autoRedeem
-    ? RedeemService.init(
-        {
-          relayerUrl: config.relayerUrl,
-          chainId: config.chainId,
-          privateKey: config.privateKey,
-          rpcUrl: config.rpcUrl!,
-          txType: config.relayerTxType,
-          builderCreds: config.builderCreds,
-          builderSigningUrl: config.builderSigningUrl,
-          builderSigningToken: config.builderSigningToken,
-        },
-        logger,
-      )
+    ? new RedeemService(clob, logger)
     : null;
 
   const copyLoop = async () => {

@@ -63,6 +63,11 @@ export class ClobService {
     return this.client.account.wallet;
   }
 
+  /** Raw SDK client for flows outside order placement (e.g. redeems). */
+  get sdk(): PolymarketClient {
+    return this.client;
+  }
+
   async getMarketMeta(tokenId: string): Promise<MarketMeta> {
     const cached = this.metaCache.get(tokenId);
     const now = Date.now();

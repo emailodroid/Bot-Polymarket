@@ -2,15 +2,8 @@ import { Wallet, utils } from "ethers";
 
 export type CopyStrategy = "PERCENT_USD" | "PERCENT_SHARES" | "FIXED_USD" | "FIXED_SHARES";
 export type CopySide = "BUY" | "SELL" | "BOTH";
-export type RelayerTxTypeOption = "SAFE" | "PROXY";
 
 export interface ApiCreds {
-  key: string;
-  secret: string;
-  passphrase: string;
-}
-
-export interface BuilderCreds {
   key: string;
   secret: string;
   passphrase: string;
@@ -43,12 +36,6 @@ export interface Config {
   debug: boolean;
   autoRedeem: boolean;
   redeemPollIntervalMs: number;
-  relayerUrl: string;
-  relayerTxType: RelayerTxTypeOption;
-  builderCreds?: BuilderCreds;
-  builderSigningUrl?: string;
-  builderSigningToken?: string;
-  rpcUrl?: string;
   maxSeenTradesAgeSec: number;
 }
 
@@ -112,13 +99,6 @@ const normalizeSide = (raw?: string): CopySide => {
   if (val === "BUY" || val === "SELL") return val;
   if (val === "BOTH" || val === "ALL") return "BOTH";
   throw new ConfigError(`Unsupported COPY_SIDE: ${raw}`);
-};
-
-const normalizeTxType = (raw?: string): RelayerTxTypeOption => {
-  if (!raw) return "PROXY";
-  const val = raw.toUpperCase();
-  if (val === "SAFE" || val === "PROXY") return val;
-  throw new ConfigError(`Unsupported RELAYER_TX_TYPE: ${raw}`);
 };
 
 const parseTraderAllocations = (raw?: string): Record<string, number> => {
@@ -194,33 +174,8 @@ export const loadConfig = (): Config => {
 
   const autoRedeem = parseBoolean("AUTO_REDEEM", true);
   const redeemPollIntervalMs = parseNumber("REDEEM_POLL_INTERVAL_MS", 60000);
-  const relayerUrl = getEnv("RELAYER_URL") ?? "https://relayer-v2.polymarket.com";
-  const relayerTxType = normalizeTxType(getEnv("RELAYER_TX_TYPE"));
-
-  const builderKey = getEnv("BUILDER_API_KEY");
-  const builderSecret = getEnv("BUILDER_API_SECRET");
-  const builderPassphrase = getEnv("BUILDER_API_PASSPHRASE");
-  const builderCreds = builderKey && builderSecret && builderPassphrase
-    ? { key: builderKey, secret: builderSecret, passphrase: builderPassphrase }
-    : undefined;
-
-  const builderSigningUrl = getEnv("BUILDER_SIGNING_URL");
-  const builderSigningToken = getEnv("BUILDER_SIGNING_TOKEN");
-  const rpcUrl = getEnv("RPC_URL");
-
   if (!profileAddress) {
     throw new ConfigError("PROFILE_ADDRESS or FUNDER_ADDRESS is required to query your positions.");
-  }
-
-  if (autoRedeem) {
-    if (!rpcUrl) throw new ConfigError("RPC_URL is required when AUTO_REDEEM=true");
-    const hasLocalCreds = !!builderCreds;
-    const hasRemoteCreds = !!builderSigningUrl && !!builderSigningToken;
-    if (!hasLocalCreds && !hasRemoteCreds) {
-      throw new ConfigError(
-        "Builder credentials are required when AUTO_REDEEM=true. Provide BUILDER_API_* or BUILDER_SIGNING_*."
-      );
-    }
   }
 
   const maxSeenTradesAgeSec = parseNumber("MAX_SEEN_TRADES_AGE_SEC", 60 * 60 * 24 * 7);
@@ -252,12 +207,6 @@ export const loadConfig = (): Config => {
     debug,
     autoRedeem,
     redeemPollIntervalMs,
-    relayerUrl,
-    relayerTxType,
-    builderCreds,
-    builderSigningUrl,
-    builderSigningToken,
-    rpcUrl,
     maxSeenTradesAgeSec,
   };
 };
