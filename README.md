@@ -38,16 +38,10 @@ In `.env`:
 - `COPY_SIDE`: `BUY`, `SELL`, `BOTH`
 
 ### Auto cashout (optional)
-To auto‑redeem when a market is resolved:
-- `AUTO_REDEEM=true`
-- `RPC_URL`: Polygon RPC URL
-- **Local builder creds**: `BUILDER_API_KEY`, `BUILDER_API_SECRET`, `BUILDER_API_PASSPHRASE`
-  - **or** remote signer: `BUILDER_SIGNING_URL`, `BUILDER_SIGNING_TOKEN`
-
-#### How to get Builder API keys
-1. Open `polymarket.com/settings?tab=builder`.
-2. Create a Builder Profile if needed, then click “+ Create New”.
-3. You’ll get `apiKey`, `secret`, and `passphrase` (keep them private).
+To auto‑redeem when a market is resolved, set `AUTO_REDEEM=true`.
+Redeems are submitted as gasless transactions through the Polymarket
+API with the same credentials the bot trades with — no RPC URL or
+Builder credentials needed.
 
 #### How to get your PRIVATE_KEY (Magic / email login)
 1. Open `https://reveal.magic.link/polymarket`.
@@ -66,9 +60,6 @@ These all have defaults in code. Only set them if you want overrides:
 - `STATE_FILE` (default: `./data/state.json`): local persistence file.
 - `MAX_SEEN_TRADES_AGE_SEC` (default: `604800`): retention for seen trades.
 - `CLOB_API_KEY`, `CLOB_API_SECRET`, `CLOB_API_PASSPHRASE`: use if you want to avoid auto‑derivation at startup.
-- `RELAYER_URL` (default: `https://relayer-v2.polymarket.com`): redeem relayer endpoint.
-- `RELAYER_TX_TYPE` (default: `PROXY`): relayer transaction type.
-- `SIGNATURE_TYPE` (default: `1`): wallet signature type.
 - `FUNDER_ADDRESS`: profile/funder address if needed (otherwise `PROFILE_ADDRESS`).
 
 ## Polymarket address (clear)

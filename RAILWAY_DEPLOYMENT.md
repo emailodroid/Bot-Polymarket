@@ -4,7 +4,7 @@ Polymarket Bot V2 is a lightweight, TypeScript copy‑trading bot that mirrors t
 
 ## About Hosting Polymarket Bot V2
 
-Hosting Polymarket Bot V2 on Railway means running a long‑lived Node.js process with a small local state file. You’ll configure environment variables for the wallet, traders to copy, and risk limits. If you enable auto‑redeem, you’ll also provide a Polygon RPC URL and Polymarket Builder credentials. Railway handles deployment, restarts, and logs, while you attach a volume to persist state across restarts. Once deployed, the bot keeps polling and mirroring trades automatically.
+Hosting Polymarket Bot V2 on Railway means running a long‑lived Node.js process with a small local state file. You’ll configure environment variables for the wallet, traders to copy, and risk limits. Railway handles deployment, restarts, and logs, while you attach a volume to persist state across restarts. Once deployed, the bot keeps polling and mirroring trades automatically.
 
 ## Common Use Cases
 
@@ -28,24 +28,17 @@ Environment variables example (copy/paste and edit):
 
 ```bash
 PRIVATE_KEY="0x..." # Magic EOA private key used to sign orders
-PROFILE_ADDRESS="0x..." # Polymarket profile/proxy address (visible in your account)
+PROFILE_ADDRESS="0x..." # Polymarket account wallet (Deposit Wallet address)
 COPY_TRADERS="0xabc...,0xdef..." # comma-separated trader addresses to copy
 MAX_DAILY_VOLUME_USD="10" # daily USD cap for buys
 MAX_POSITION_SIZE_USD="20" # per-position USD cap for buys
-SIGNATURE_TYPE="1" # 1=Polymarket proxy (Magic), 0=EOA, 2=Gnosis Safe
 COPY_STRATEGY="PERCENT_USD" # PERCENT_USD | PERCENT_SHARES | FIXED_USD | FIXED_SHARES
 COPY_RATIO="0.1" # percent multiplier (0.1 = 10%)
 FIXED_TRADE_USD="10" # fixed USD per trade when COPY_STRATEGY=FIXED_USD
 MIN_TRADE_USD="1" # minimum USD per trade
 MAX_TRADE_USD="10" # maximum USD per trade
 COPY_SIDE="BOTH" # BUY | SELL | BOTH
-AUTO_REDEEM="true" # auto cashout when a market resolves
-RPC_URL="https://xxx" # Polygon RPC endpoint
-RELAYER_URL="https://relayer-v2.polymarket.com" # Polymarket relayer endpoint
-RELAYER_TX_TYPE="PROXY" # PROXY (default) or SAFE
-BUILDER_API_KEY="..." # Builder API key from polymarket.com/settings?tab=builder
-BUILDER_API_SECRET="..." # Builder API secret
-BUILDER_API_PASSPHRASE="..." # Builder API passphrase
+AUTO_REDEEM="true" # auto cashout when a market resolves (no extra config needed)
 DRY_RUN="true" # simulate orders without sending them
 DEBUG="true" # verbose logs
 RAILPACK_NODE_VERSION="22" # force Node 22 on Railway
@@ -63,11 +56,6 @@ RAILPACK_NODE_VERSION="22" # force Node 22 on Railway
   - This is the address you see in your Polymarket account (proxy/profile wallet).
   - Example: `https://polymarket.com/@0x...`
 
-- **SIGNATURE_TYPE**:
-  - `1` for Magic/Polymarket proxy (recommended default).
-  - `0` for a standard EOA wallet.
-  - `2` for a Gnosis Safe.
-
 ### Copy Trading
 
 - **COPY_TRADERS**: paste the trader wallet addresses you want to follow.
@@ -77,12 +65,9 @@ RAILPACK_NODE_VERSION="22" # force Node 22 on Railway
 
 ### Auto‑Redeem (Cashout)
 
-Auto‑redeem requires Builder credentials and a Polygon RPC URL:
-
-- **RPC_URL**: use a Polygon RPC provider (Alchemy, Infura, etc.).
-- **BUILDER_API_KEY / SECRET / PASSPHRASE**:
-  - Go to `https://polymarket.com/settings?tab=builder`.
-  - Create a Builder Profile, then “+ Create New”.
+Auto‑redeem submits gasless redeem transactions through the Polymarket
+API using the same credentials the bot trades with. No RPC URL or
+Builder credentials are needed — just set `AUTO_REDEEM="true"`.
 
 ## Railway Setup Steps
 
